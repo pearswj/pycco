@@ -85,58 +85,31 @@ def parse(source, code, language):
             })
 
     # Setup the variables to get ready to check for multiline comments
-    multi_line = False
-    multi_line_delimiters = [language.get("multistart"), language.get("multiend")]
+    in_comments = False
 
     for line in lines:
 
-        # Only go into multiline comments section when one of the delimiters is
-        # found to be at the start of a line
-        if all(multi_line_delimiters) and any([line.lstrip().startswith(delim) or line.rstrip().endswith(delim) for delim in multi_line_delimiters]):
-            if not multi_line:
-                multi_line = True
-
-            else:
-                multi_line = False
-
-            if (multi_line
-               and line.strip().endswith(language.get("multiend"))
-               and len(line.strip()) > len(language.get("multiend"))):
-                multi_line = False
-
-            # Get rid of the delimiters so that they aren't in the final docs
-            line = line.replace(language["multistart"], '')
-            line = line.replace(language["multiend"], '')
-            docs_text += line.strip() + '\n'
-            indent_level = re.match("\s*", line).group(0)
-
-            if has_code and docs_text.strip():
-                save(docs_text, code_text[:-1])
-                code_text = code_text.split('\n')[-1]
-                has_code = docs_text = ''
-
-        elif multi_line:
-            # Remove leading spaces
-            if re.match(r' {%d}' % len(indent_level), line):
-                docs_text += line[len(indent_level):] + '\n'
-            else:
-                docs_text += line + '\n'
-
-        elif re.match(language["comment_matcher"], line):
-            if has_code:
-                save(docs_text, code_text)
-                has_code = docs_text = code_text = ''
-            docs_text += re.sub(language["comment_matcher"], "", line) + "\n"
-
-        else:
-            if code_text and any([line.lstrip().startswith(x) for x in ['class ', 'def ', '@']]):
-                if not code_text.lstrip().startswith("@"):
+        # Find xml documentation comments 
+        if line.lstrip().startswith('///'):
+            
+            # Enter new block and save previous block
+            if not in_comments:
+                if code_text.strip() and docs_text.strip():
                     save(docs_text, code_text)
-                    code_text = has_code = docs_text = ''
+                    docs_text = code_text = ''
+                in_comments = True
 
-            has_code = True
+            # Save documentation line
+            line = line.replace('///', '').lstrip()
+            docs_text += line.strip() + '\n'
+            
+        else:
+            # Exit previous block
+            if in_comments:
+                in_comments = False
+                
+            # Save code line
             code_text += line + '\n'
-
 
     save(docs_text, code_text)
 
@@ -157,6 +130,54 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
 
     if not outdir:
         raise TypeError("Missing the required 'outdir' keyword argument.")
+        
+    # xml
+    def get_node(dom, tag):
+        node = dom.getElementsByTagName(tag)
+        if node:
+            return node[0]
+        else:
+            return None
+    
+    def sanitise_node(dom, node):
+        for child in node.childNodes:
+            if child.nodeType == child.ELEMENT_NODE:
+                if child.tagName == 'see':
+                    tmp = '[[' + child.getAttribute('cref') + '.cs]]'
+                    node.insertBefore(dom.createTextNode(tmp), child)
+                    node.removeChild(child)
+                elif child.tagName == 'paramref':
+                    tmp = '_' + child.getAttribute('name') + '_'
+                    node.insertBefore(dom.createTextNode(tmp), child)
+                    node.removeChild(child)
+        return node
+    
+    def getText(nodelist):
+        rc = []
+        for node in nodelist:
+            if node.nodeType == node.TEXT_NODE:
+                rc.append(node.data)
+        return ''.join(rc)
+    
+    root = minidom.parseString('<wrapper>\n' + comment + '</wrapper>')
+    summary = get_node(root, 'summary')
+    returns = get_node(root, 'returns')
+    remarks = get_node(root, 'remarks')
+    
+    summary = sanitise_node(root, summary)
+    comment = getText(summary.childNodes)
+    
+    parameters = [{'name': p.getAttribute('name'), 'text': getText(p.childNodes)} for p in root.getElementsByTagName('param')]
+    if len(parameters) > 0:
+        comment += '\n\n### Parameters\n\n'
+        comment += '\n'.join(['* _' + p['name'] + '_: ' + p['text'] for p in parameters])
+        
+    if returns:
+        comment += '\n\n### Returns\n\n' + getText(sanitise_node(root, returns).childNodes)
+    
+    if remarks:
+        comment += '\n\n### Remarks\n\n' + getText(sanitise_node(root, remarks).childNodes)
+    
     def sanitize_section_name(name):
         return "-".join(name.lower().strip().split(" "))
 
@@ -218,7 +239,7 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
         section["docs_html"] = markdown(preprocess(docs_text,
                                                    i,
                                                    preserve_paths=preserve_paths,
-                                                   outdir=outdir))
+                                                   outdir=outdir), ['fenced_code'])
         section["num"] = i
 
 # === HTML Code generation ===
@@ -271,6 +292,7 @@ import time
 from markdown import markdown
 from os import path
 from pygments import lexers, formatters
+from xml.dom import minidom
 
 # A list of the languages that Pycco supports, mapping the file extension to
 # the name of the Pygments lexer and the symbol that indicates a comment. To
@@ -309,6 +331,9 @@ languages = {
 
     ".hs": { "name": "haskell", "symbol": "--",
         "multistart": "{-", "multiend": "-}"},
+        
+    ".cs": { "name": "csharp", "symbol": "//",
+        "multistart": "/*", "multiend": "*/"},
 }
 
 # Build out the appropriate matchers and delimiters for each language.
