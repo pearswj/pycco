@@ -65,7 +65,7 @@ def parse(source, code, language):
 
     lines = code.split("\n")
     sections = []
-    has_code = docs_text = code_text = ""
+    docs_text = code_text = ""
 
     if lines[0].startswith("#!"):
         lines.pop(0)
@@ -77,26 +77,33 @@ def parse(source, code, language):
                 break
 
 
-    def save(docs, code):
+    def save(docs, code, name='', visibility='public', obsolete=False):
         if docs or code:
+            if name == '':
+                name = '[missing]'
             sections.append({
                 "docs_text": docs,
-                "code_text": code
+                "code_text": code,
+                "name": name,
+                "visibility": visibility,
+                "obsolete": obsolete
             })
 
     # Setup the variables to get ready to check for multiline comments
     in_comments = False
+    visibility = ''
+    name = ''
+    declaration = re.compile('^\s*(public|private|internal)[\w<>\[\] ]* (\w+)')
 
     for line in lines:
-
         # Find xml documentation comments 
         if line.lstrip().startswith('///'):
             
             # Enter new block and save previous block
             if not in_comments:
                 if code_text.strip() and docs_text.strip():
-                    save(docs_text, code_text)
-                    docs_text = code_text = ''
+                    save(docs_text, code_text, name, visibility)
+                    docs_text = code_text = visiblity = name = ''
                 in_comments = True
 
             # Save documentation line
@@ -106,12 +113,20 @@ def parse(source, code, language):
         else:
             # Exit previous block
             if in_comments:
+                if line.lstrip().startswith('[Obsolete'):
+                    pass
+                    # TODO
                 in_comments = False
+                # Attempt to grab next line
+                tmp = declaration.match(line)
+                if tmp:
+                    visibility = tmp.group(1)
+                    name = tmp.group(2)
                 
             # Save code line
             code_text += line + '\n'
 
-    save(docs_text, code_text)
+    save(docs_text, code_text, name, visibility)
 
     return sections
 
@@ -144,10 +159,14 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
             if child.nodeType == child.ELEMENT_NODE:
                 if child.tagName == 'see':
                     tmp = '[[' + child.getAttribute('cref') + '.cs]]'
-                    node.insertBefore(dom.createTextNode(tmp), child)
-                    node.removeChild(child)
                 elif child.tagName == 'paramref':
                     tmp = '_' + child.getAttribute('name') + '_'
+                elif child.tagName == 'para':
+                    tmp = getText(child.childNodes) + '\n\n'
+                else:
+                    tmp = None
+                    
+                if tmp:
                     node.insertBefore(dom.createTextNode(tmp), child)
                     node.removeChild(child)
         return node
@@ -236,10 +255,9 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
             docs_text = unicode(section["docs_text"])
         except UnicodeError:
             docs_text = unicode(section["docs_text"].decode('utf-8'))
-        section["docs_html"] = markdown(preprocess(docs_text,
-                                                   i,
-                                                   preserve_paths=preserve_paths,
-                                                   outdir=outdir), ['fenced_code'])
+        text = preprocess(docs_text, i, preserve_paths=preserve_paths, outdir=outdir)
+        text = '## ' + section["name"] + '\n\n' + text
+        section["docs_html"] = markdown(text, ['fenced_code'])
         section["num"] = i
 
 # === HTML Code generation ===

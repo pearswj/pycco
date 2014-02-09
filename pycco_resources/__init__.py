@@ -77,7 +77,7 @@ div.docs {
   max-width: 500px;
   min-width: 500px;
   min-height: 5px;
-  padding: 10px 25px 1px 50px;
+  padding: 10px 25px 50px 50px;
   vertical-align: top;
   text-align: left;
 }
@@ -219,7 +219,7 @@ html = """\
   </div>
   <div class='clearall'>
   {{#sections}}
-  <div class='section' id='section-{{ num }}'>
+  <div class='section {{ visibility }}' id='section-{{ num }}'>
     <div class='docs'>
       <div class='octowrap'>
         <a class='octothorpe' href='#section-{{ num }}'>#</a>
