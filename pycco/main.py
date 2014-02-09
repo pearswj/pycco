@@ -258,7 +258,7 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
         text = preprocess(docs_text, i, preserve_paths=preserve_paths, outdir=outdir)
         text = '## ' + section["name"] + '\n\n' + text
         section["docs_html"] = markdown(text, ['fenced_code'])
-        section["num"] = i
+        section["num"] = "{0:02}-{1}".format(i, section["name"].lower())
 
 # === HTML Code generation ===
 
