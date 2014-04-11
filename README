@@ -23,3 +23,31 @@ CoffeeScript (Original) - http://jashkenas.github.com/docco/
 Ruby - http://rtomayko.github.com/rocco/
 
 Sh - http://rtomayko.github.com/shocco/
+
+
+Changes in this fork
+====================
+
+This fork is a work-in-progress for documenting open-source C# projects.
+
+I've made a few changes to make it easier to run this python script without installing. You can now simply call:
+
+python pycco/main.py src/*.cs
+
+
+Necessary libraries are listed below (lifted directly from the code itself):
+
+import optparse
+import os
+import pygments
+import pystache
+import re
+import sys
+import time
+from markdown import markdown
+from os import path
+from pygments import lexers, formatters
+from xml.dom import minidom
+
+
+I'll endeavour to tidy things up and make this all more clear.
