@@ -33,7 +33,7 @@ Or, to install the latest source
 
 # === Main Documentation Generation Functions ===
 
-def generate_documentation(source, outdir=None, preserve_paths=True,
+def generate_documentation(source, jumplist, outdir=None, preserve_paths=True,
                            language=None):
     """
     Generate the documentation for a source file by reading it in, splitting it
@@ -47,7 +47,7 @@ def generate_documentation(source, outdir=None, preserve_paths=True,
     language = get_language(source, code, language=language)
     sections = parse(source, code, language)
     highlight(source, sections, language, preserve_paths=preserve_paths, outdir=outdir)
-    return generate_html(source, sections, preserve_paths=preserve_paths, outdir=outdir)
+    return generate_html(source, jumplist, sections, preserve_paths=preserve_paths, outdir=outdir)
 
 def parse(source, code, language):
     """
@@ -262,7 +262,7 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
 
 # === HTML Code generation ===
 
-def generate_html(source, sections, preserve_paths=True, outdir=None):
+def generate_html(source, jumplist, sections, preserve_paths=True, outdir=None):
     """
     Once all of the code is finished highlighting, we can generate the HTML file
     and write out the documentation. Pass the completed sections into the
@@ -287,7 +287,7 @@ def generate_html(source, sections, preserve_paths=True, outdir=None):
         "title"       : title,
         "stylesheet"  : csspath,
         "sections"    : sections,
-        "source"      : source,
+        "sources"     : jumplist,
         "path"        : path,
         "destination" : destination
     })
@@ -456,6 +456,12 @@ def process(sources, preserve_paths=True, outdir=None, language=None):
         css = open(path.join(outdir, "pycco.css"), "w")
         css.write(pycco_styles)
         css.close()
+        
+        # create dictionary of sources (filename, url) for jump list
+        jumplist = []
+        for s in sources:
+            url = destination(s, preserve_paths=preserve_paths, outdir=outdir)
+            jumplist.append({"basename": s, "url": os.path.abspath(url)})
 
         def next_file():
             s = sources.pop(0)
@@ -467,7 +473,7 @@ def process(sources, preserve_paths=True, outdir=None, language=None):
                 pass
 
             with open(dest, "w") as f:
-                f.write(generate_documentation(s, preserve_paths=preserve_paths, outdir=outdir,
+                f.write(generate_documentation(s, jumplist, preserve_paths=preserve_paths, outdir=outdir,
                                                language=language))
 
             print "pycco = %s -> %s" % (s, dest)
