@@ -43,7 +43,7 @@ def generate_documentation(source, jumplist, outdir=None, preserve_paths=True,
 
     if not outdir:
         raise TypeError("Missing the required 'outdir' keyword argument.")
-    code = open(source, "r").read()
+    code = open(source, "r").read().decode("utf-8-sig")
     language = get_language(source, code, language=language)
     sections = parse(source, code, language)
     highlight(source, sections, language, preserve_paths=preserve_paths, outdir=outdir)
@@ -158,7 +158,7 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
         for child in node.childNodes:
             if child.nodeType == child.ELEMENT_NODE:
                 if child.tagName == 'see':
-                    tmp = '[[' + child.getAttribute('cref') + '.cs]]'
+                    tmp = '[[' + child.getAttribute('cref') + ']]'
                 elif child.tagName == 'paramref':
                     tmp = '_' + child.getAttribute('name') + '_'
                 elif child.tagName == 'para':
@@ -461,7 +461,7 @@ def process(sources, preserve_paths=True, outdir=None, language=None):
         jumplist = []
         for s in sources:
             url = destination(s, preserve_paths=preserve_paths, outdir=outdir)
-            jumplist.append({"basename": s, "url": os.path.abspath(url)})
+            jumplist.append({"basename": s.split('/')[-1], "url": url.lstrip(outdir + '/')})
 
         def next_file():
             s = sources.pop(0)
