@@ -220,11 +220,13 @@ html = """\
   </div>
   <div class='clearall'>
   {{#sections}}
-  <div class='section {{ visibility }}' id='section-{{ num }}'>
+  <div class='section {{ visibility }}' id='{{ num }}'>
     <div class='docs'>
+      {{#num}}
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-{{ num }}'>#</a>
+        <a class='octothorpe' href='#{{ num }}'>#</a>
       </div>
+      {{/num}}
       {{{ docs_html }}}
     </div>
     <div class='code'>

@@ -93,8 +93,8 @@ def parse(source, code, language):
     in_comments = False
     visibility = ''
     name = ''
-    declaration = re.compile('^\s*(public|private|internal)[\w<>\[\] ]* (\w+)')
-
+    declaration = re.compile('^\s*(public|private|internal)([\w<>\[\] ]* )(\w+)')
+    
     for line in lines:
         # Find xml documentation comments 
         if line.lstrip().startswith('///'):
@@ -107,21 +107,24 @@ def parse(source, code, language):
                 in_comments = True
 
             # Save documentation line
-            line = line.replace('///', '').lstrip()
-            docs_text += line.strip() + '\n'
+            line = line.replace('///', '').strip()
+            docs_text += line + '\n'
             
         else:
             # Exit previous block
             if in_comments:
-                if line.lstrip().startswith('[Obsolete'):
-                    pass
-                    # TODO
-                in_comments = False
-                # Attempt to grab next line
-                tmp = declaration.match(line)
-                if tmp:
-                    visibility = tmp.group(1)
-                    name = tmp.group(2)
+                if not line.strip(): # empty line
+                    continue
+                else:
+                    # attempt to grab declaration line
+                    tmp = declaration.match(line)
+                    if tmp:
+                        visibility = tmp.group(1)
+                        if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
+                            name = None
+                        else:
+                            name = tmp.group(3)
+                        in_comments = False
                 
             # Save code line
             code_text += line + '\n'
@@ -256,9 +259,11 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
         except UnicodeError:
             docs_text = unicode(section["docs_text"].decode('utf-8'))
         text = preprocess(docs_text, i, preserve_paths=preserve_paths, outdir=outdir)
-        text = '## ' + section["name"] + '\n\n' + text
+        if section["name"]:
+            text = '## ' + section["name"] + '\n\n' + text
+            #section["num"] = "{0:02}-{1}".format(i, section["name"])
+            section["num"] = section["name"]
         section["docs_html"] = markdown(text, ['fenced_code'])
-        section["num"] = "{0:02}-{1}".format(i, section["name"].lower())
 
 # === HTML Code generation ===
 
