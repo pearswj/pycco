@@ -76,17 +76,36 @@ def parse(source, code, language):
                 lines.pop(linenum)
                 break
 
+    section_ids = {}
+
+    first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+    all_cap_re = re.compile('([a-z0-9])([A-Z])')
+    def pascal_case_to_hyphen(name):
+        if not name:
+            return name
+        s1 = first_cap_re.sub(r'\1-\2', name)
+        return all_cap_re.sub(r'\1-\2', s1).lower()
 
     def save(docs, code, name='', visibility='public', obsolete=False):
         if docs or code:
             if name == '':
                 name = '[missing]'
+
+            # create unique id
+            id = pascal_case_to_hyphen(name)
+            if name in section_ids:
+                section_ids[name] += 1
+                id += "-" + str(section_ids[name])
+            else:
+                section_ids[name] = 0
+
             sections.append({
                 "docs_text": docs,
                 "code_text": code,
                 "name": name,
                 "visibility": visibility,
-                "obsolete": obsolete
+                "obsolete": obsolete,
+                "id": id
             })
 
     # Setup the variables to get ready to check for multiline comments
@@ -262,7 +281,7 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
         if section["name"]:
             text = '## ' + section["name"] + '\n\n' + text
             #section["num"] = "{0:02}-{1}".format(i, section["name"])
-            section["num"] = section["name"]
+            section["num"] = section["id"]
         section["docs_html"] = markdown(text, ['fenced_code'])
 
 # === HTML Code generation ===
