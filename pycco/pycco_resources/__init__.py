@@ -1,7 +1,8 @@
 css = """\
 /*--------------------- Layout and Typography ----------------------------*/
 body {
-  font-family: "Helvetica", arial, freesans, clean, sans-serif;
+  /* font-family: "Helvetica", arial, freesans, clean, sans-serif; */
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, FreeSerif, serif;
   font-size: 16px;
   line-height: 24px;
   color: #252519;
