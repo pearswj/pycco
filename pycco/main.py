@@ -88,8 +88,8 @@ def parse(source, code, language):
 
     def save(docs, code, name='', visibility='public', obsolete=False):
         if docs or code:
-            if name == '':
-                name = '[missing]'
+            # if name == '':
+            #     name = '[missing]'
 
             # create unique id
             id = pascal_case_to_hyphen(name)
@@ -120,7 +120,7 @@ def parse(source, code, language):
 
             # Enter new block and save previous block
             if not in_comments:
-                if code_text.strip() and docs_text.strip():
+                if code_text.strip():
                     save(docs_text, code_text, name, visibility)
                     docs_text = code_text = visiblity = name = ''
                 in_comments = True
@@ -139,10 +139,9 @@ def parse(source, code, language):
                     tmp = declaration.match(line)
                     if tmp:
                         visibility = tmp.group(1)
-                        if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
-                            name = None
-                        else:
-                            name = tmp.group(3)
+                        # if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
+                        #     name = None
+                        name = tmp.group(3)
                         in_comments = False
 
             # Save code line
@@ -200,6 +199,9 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
                 rc.append(node.data)
         return ''.join(rc)
 
+    if not comment.strip():
+        return ""
+
     root = minidom.parseString('<wrapper>\n' + comment + '</wrapper>')
     summary = get_node(root, 'summary')
     returns = get_node(root, 'returns')
@@ -208,7 +210,7 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
     summary = sanitise_node(root, summary)
     comment = getText(summary.childNodes)
 
-    parameters = [{'name': p.getAttribute('name'), 'text': getText(p.childNodes)} for p in root.getElementsByTagName('param')]
+    parameters = [{'name': p.getAttribute('name'), 'text': getText(sanitise_node(root, p).childNodes)} for p in root.getElementsByTagName('param')]
     if len(parameters) > 0:
         comment += '\n\n### Parameters\n\n'
         comment += '\n'.join(['* _' + p['name'] + '_: ' + p['text'] for p in parameters])
