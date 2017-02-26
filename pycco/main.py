@@ -94,11 +94,11 @@ def parse(source, code, language):
     visibility = ''
     name = ''
     declaration = re.compile('^\s*(public|private|internal)([\w<>\[\] ]* )(\w+)')
-    
+
     for line in lines:
-        # Find xml documentation comments 
+        # Find xml documentation comments
         if line.lstrip().startswith('///'):
-            
+
             # Enter new block and save previous block
             if not in_comments:
                 if code_text.strip() and docs_text.strip():
@@ -109,7 +109,7 @@ def parse(source, code, language):
             # Save documentation line
             line = line.replace('///', '').strip()
             docs_text += line + '\n'
-            
+
         else:
             # Exit previous block
             if in_comments:
@@ -125,7 +125,7 @@ def parse(source, code, language):
                         else:
                             name = tmp.group(3)
                         in_comments = False
-                
+
             # Save code line
             code_text += line + '\n'
 
@@ -148,7 +148,7 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
 
     if not outdir:
         raise TypeError("Missing the required 'outdir' keyword argument.")
-        
+
     # xml
     def get_node(dom, tag):
         node = dom.getElementsByTagName(tag)
@@ -156,7 +156,7 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
             return node[0]
         else:
             return None
-    
+
     def sanitise_node(dom, node):
         for child in node.childNodes:
             if child.nodeType == child.ELEMENT_NODE:
@@ -168,38 +168,38 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
                     tmp = getText(child.childNodes) + '\n\n'
                 else:
                     tmp = None
-                    
+
                 if tmp:
                     node.insertBefore(dom.createTextNode(tmp), child)
                     node.removeChild(child)
         return node
-    
+
     def getText(nodelist):
         rc = []
         for node in nodelist:
             if node.nodeType == node.TEXT_NODE:
                 rc.append(node.data)
         return ''.join(rc)
-    
+
     root = minidom.parseString('<wrapper>\n' + comment + '</wrapper>')
     summary = get_node(root, 'summary')
     returns = get_node(root, 'returns')
     remarks = get_node(root, 'remarks')
-    
+
     summary = sanitise_node(root, summary)
     comment = getText(summary.childNodes)
-    
+
     parameters = [{'name': p.getAttribute('name'), 'text': getText(p.childNodes)} for p in root.getElementsByTagName('param')]
     if len(parameters) > 0:
         comment += '\n\n### Parameters\n\n'
         comment += '\n'.join(['* _' + p['name'] + '_: ' + p['text'] for p in parameters])
-        
+
     if returns:
         comment += '\n\n### Returns\n\n' + getText(sanitise_node(root, returns).childNodes)
-    
+
     if remarks:
         comment += '\n\n### Remarks\n\n' + getText(sanitise_node(root, remarks).childNodes)
-    
+
     def sanitize_section_name(name):
         return "-".join(name.lower().strip().split(" "))
 
@@ -354,7 +354,7 @@ languages = {
 
     ".hs": { "name": "haskell", "symbol": "--",
         "multistart": "{-", "multiend": "-}"},
-        
+
     ".cs": { "name": "csharp", "symbol": "//",
         "multistart": "/*", "multiend": "*/"},
 }
@@ -461,7 +461,7 @@ def process(sources, preserve_paths=True, outdir=None, language=None):
         css = open(path.join(outdir, "pycco.css"), "w")
         css.write(pycco_styles)
         css.close()
-        
+
         # create dictionary of sources (filename, url) for jump list
         jumplist = []
         for s in sources:

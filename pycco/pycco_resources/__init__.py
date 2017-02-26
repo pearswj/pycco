@@ -203,7 +203,7 @@ html = """\
 <body>
 <div id='container'>
   <div id="background"></div>
-  
+
   <div id="jump_to">
     Jump To &hellip;
     <div id="jump_wrapper">
@@ -214,7 +214,7 @@ html = """\
       </div>
     </div>
   </div>
-  
+
   <div class='section'>
     <div class='docs'><h1>{{ title }}</h1></div>
   </div>
