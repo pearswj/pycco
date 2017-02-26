@@ -108,65 +108,6 @@ def parse(source, code, language):
                 "id": id
             })
 
-    # Setup the variables to get ready to check for multiline comments
-    in_comments = False
-    visibility = ''
-    name = ''
-    declaration = re.compile('^\s*(public|private|internal)([\w<>\[\] ]* )(\w+)')
-
-    for line in lines:
-        # Find xml documentation comments
-        if line.lstrip().startswith('///'):
-
-            # Enter new block and save previous block
-            if not in_comments:
-                if code_text.strip():
-                    save(docs_text, code_text, name, visibility)
-                    docs_text = code_text = visiblity = name = ''
-                in_comments = True
-
-            # Save documentation line
-            line = line.replace('///', '').strip()
-            docs_text += line + '\n'
-
-        else:
-            # Exit previous block
-            if in_comments:
-                if not line.strip(): # empty line
-                    continue
-                else:
-                    # attempt to grab declaration line
-                    tmp = declaration.match(line)
-                    if tmp:
-                        visibility = tmp.group(1)
-                        # if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
-                        #     name = None
-                        name = tmp.group(3)
-                        in_comments = False
-
-            # Save code line
-            code_text += line + '\n'
-
-    save(docs_text, code_text, name, visibility)
-
-    return sections
-
-# === Preprocessing the comments ===
-
-def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
-    """
-    Add cross-references before having the text processed by markdown.  It's
-    possible to reference another file, like this : `[[main.py]]` which renders
-    [[main.py]]. You can also reference a specific section of another file, like
-    this: `[[main.py#highlighting-the-source-code]]` which renders as
-    [[main.py#highlighting-the-source-code]]. Sections have to be manually
-    declared; they are written on a single line, and surrounded by equals signs:
-    `=== like this ===`
-    """
-
-    if not outdir:
-        raise TypeError("Missing the required 'outdir' keyword argument.")
-
     # xml
     def get_node(dom, tag):
         node = dom.getElementsByTagName(tag)
@@ -199,27 +140,88 @@ def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
                 rc.append(node.data)
         return ''.join(rc)
 
-    if not comment.strip():
-        return ""
+    def parse_xml_comments(comment):
+        root = minidom.parseString('<wrapper>\n' + comment + '</wrapper>')
+        summary = get_node(root, 'summary')
+        returns = get_node(root, 'returns')
+        remarks = get_node(root, 'remarks')
 
-    root = minidom.parseString('<wrapper>\n' + comment + '</wrapper>')
-    summary = get_node(root, 'summary')
-    returns = get_node(root, 'returns')
-    remarks = get_node(root, 'remarks')
+        summary = sanitise_node(root, summary)
+        comment = getText(summary.childNodes)
 
-    summary = sanitise_node(root, summary)
-    comment = getText(summary.childNodes)
+        parameters = [{'name': p.getAttribute('name'), 'text': getText(sanitise_node(root, p).childNodes)} for p in root.getElementsByTagName('param')]
+        if len(parameters) > 0:
+            comment += '\n\n#### Parameters\n\n'
+            comment += '\n'.join(['* _' + p['name'] + '_: ' + p['text'] for p in parameters])
 
-    parameters = [{'name': p.getAttribute('name'), 'text': getText(sanitise_node(root, p).childNodes)} for p in root.getElementsByTagName('param')]
-    if len(parameters) > 0:
-        comment += '\n\n### Parameters\n\n'
-        comment += '\n'.join(['* _' + p['name'] + '_: ' + p['text'] for p in parameters])
+        if returns:
+            comment += '\n\n#### Returns\n\n' + getText(sanitise_node(root, returns).childNodes)
 
-    if returns:
-        comment += '\n\n### Returns\n\n' + getText(sanitise_node(root, returns).childNodes)
+        if remarks:
+            comment += '\n\n#### Remarks\n\n' + getText(sanitise_node(root, remarks).childNodes)
 
-    if remarks:
-        comment += '\n\n### Remarks\n\n' + getText(sanitise_node(root, remarks).childNodes)
+        return comment
+
+    # Setup the variables to get ready to check for multiline comments
+    in_comments = False
+    visibility = ''
+    name = ''
+    declaration = re.compile('^\s*(public|private|internal)([\w<>\[\] ]* )(\w+)')
+
+    for line in lines:
+        # Find xml documentation comments
+        if line.lstrip().startswith('///'):
+
+            # Enter new block and save previous block
+            if not in_comments:
+                if code_text.strip():
+                    save(docs_text, code_text, name, visibility)
+                    docs_text = code_text = visiblity = name = ''
+                in_comments = True
+
+            # Save documentation line
+            line = line.replace('///', '').strip()
+            docs_text += line + '\n'
+
+        else:
+            # Exit previous block
+            if in_comments:
+                if not line.strip(): # empty line
+                    continue
+                else:
+                    # attempt to grab declaration line
+                    tmp = declaration.match(line)
+                    if tmp:
+                        visibility = tmp.group(1)
+                        name = tmp.group(3)
+                        if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
+                            docs_text = "## " + name + "\n\n" + parse_xml_comments(docs_text)
+                        else:
+                            docs_text = "### " + name + "\n\n" + parse_xml_comments(docs_text)
+                        in_comments = False
+
+            # Save code line
+            code_text += line + '\n'
+
+    save(docs_text, code_text, name, visibility)
+
+    return sections
+
+# === Preprocessing the comments ===
+
+def preprocess(comment, section_nr, preserve_paths=True, outdir=None):
+    """
+    Add cross-references before having the text processed by markdown.  It's
+    possible to reference another file, like this : `[[main.py]]` which renders
+    [[main.py]]. You can also reference a specific section of another file, like
+    this: `[[main.py#highlighting-the-source-code]]` which renders as
+    [[main.py#highlighting-the-source-code]]. Sections have to be manually
+    declared; they are written on a single line, and surrounded by equals signs:
+    `=== like this ===`
+    """
+
+    if not outdir:
+        raise TypeError("Missing the required 'outdir' keyword argument.")
 
     def sanitize_section_name(name):
         return "-".join(name.lower().strip().split(" "))
@@ -280,10 +282,7 @@ def highlight(source, sections, language, preserve_paths=True, outdir=None):
         except UnicodeError:
             docs_text = unicode(section["docs_text"].decode('utf-8'))
         text = preprocess(docs_text, i, preserve_paths=preserve_paths, outdir=outdir)
-        if section["name"]:
-            text = '## ' + section["name"] + '\n\n' + text
-            #section["num"] = "{0:02}-{1}".format(i, section["name"])
-            section["num"] = section["id"]
+        section["num"] = section["id"]
         section["docs_html"] = markdown(text, ['fenced_code'])
 
 # === HTML Code generation ===
