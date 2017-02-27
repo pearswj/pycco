@@ -167,6 +167,7 @@ def parse(source, code, language):
     visibility = ''
     name = ''
     declaration = re.compile('^\s*(public|private|internal)([\w<>\[\] ]* )(\w+)')
+    curr_class = None
 
     for line in lines:
         # Find xml documentation comments
@@ -196,7 +197,10 @@ def parse(source, code, language):
                         name = tmp.group(3)
                         if tmp.group(2).rstrip().endswith("class") or tmp.group(2).rstrip().endswith("struct"):
                             docs_text = "## " + name + "\n\n" + parse_xml_comments(docs_text)
+                            curr_class = name
                         else:
+                            if name == curr_class:
+                                name = ".ctor"
                             docs_text = "### " + name + "\n\n" + parse_xml_comments(docs_text)
                         in_comments = False
 
